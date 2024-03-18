@@ -1,15 +1,35 @@
-const int trigPin = 11;
-const int echoPin = 10;
+#define BLYNK_PRINT Serial
+#define BLYNK_TEMPLATE_ID "secret"
+#define BLYNK_TEMPLATE_NAME "moresecret"
+#define BLYNK_AUTH_TOKEN "anothersecret"
+
+#include <BlynkSimpleEsp32.h>
+
+const int trigPin = D8;
+const int echoPin = D6;
+const float boxDepth = 11.0; // Depth of the box in centimeters
+const float fillingThreshold = 2.0; // Threshold for triggering depth printing
 
 float duration, distance;
+
+BlynkTimer timer;
+
+void sendWaterLevel(); // Function declaration
 
 void setup() {
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
   Serial.begin(9600);
+  Blynk.begin(BLYNK_AUTH_TOKEN, "alsosecret", "evenmoresecret");
+  timer.setInterval(5000L, sendWaterLevel); // Send water level every second
 }
 
 void loop() {
+  Blynk.run();
+  timer.run();
+}
+
+void sendWaterLevel() {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
@@ -17,9 +37,13 @@ void loop() {
   digitalWrite(trigPin, LOW);
 
   duration = pulseIn(echoPin, HIGH);
-  distance = (duration*.0343)/2;
-  Serial.print("Afstand: ");
-  Serial.print(distance);
-  Serial.println(" cm");
-  delay(1000);
+  distance = (duration * 0.0343) / 2;
+
+  float WaterLevel = boxDepth - distance;
+  if (WaterLevel <= (boxDepth - fillingThreshold)) {
+    if (WaterLevel < 0) {
+      WaterLevel = 0; // Ensure WaterLevel is not negative
+    }
+    Blynk.virtualWrite(V0, WaterLevel); // Send WaterLevel to virtual pin V1
+  }
 }
