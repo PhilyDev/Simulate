@@ -1,49 +1,76 @@
 #define BLYNK_PRINT Serial
-#define BLYNK_TEMPLATE_ID "secret"
-#define BLYNK_TEMPLATE_NAME "moresecret"
-#define BLYNK_AUTH_TOKEN "anothersecret"
+#define BLYNK_TEMPLATE_ID "secret
+#define BLYNK_TEMPLATE_NAME "secret"
+#define BLYNK_AUTH_TOKEN "secret"
 
 #include <BlynkSimpleEsp32.h>
 
 const int trigPin = D8;
 const int echoPin = D6;
+const int relayPin = D5; // Pin D5 for the relay
 const float boxDepth = 11.0; // Depth of the box in centimeters
-const float fillingThreshold = 2.0; // Threshold for triggering depth printing
+const float relayThreshold = 2.0; // Threshold for activating relay in centimeters
 
-float duration, distance;
+float distance; // Global variable for distance
 
 BlynkTimer timer;
+unsigned long previousPrintTime = 0; // Variable to store the previous print time
+const unsigned long printInterval = 1000; // Print interval in milliseconds
 
 void sendWaterLevel(); // Function declaration
+void printWaterLevel(); // Function declaration
 
 void setup() {
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+  pinMode(relayPin, OUTPUT); // Set relay pin as output
   Serial.begin(9600);
-  Blynk.begin(BLYNK_AUTH_TOKEN, "alsosecret", "evenmoresecret");
-  timer.setInterval(5000L, sendWaterLevel); // Send water level every second
+  Blynk.begin(BLYNK_AUTH_TOKEN, "ssid", "passwd");
+  timer.setInterval(1000L, sendWaterLevel); // Send water level every 5 seconds
 }
 
 void loop() {
   Blynk.run();
   timer.run();
+  printWaterLevel(); // Check if it's time to print water level
 }
 
 void sendWaterLevel() {
+  unsigned long duration; // Declare duration variable
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
 
-  duration = pulseIn(echoPin, HIGH);
-  distance = (duration * 0.0343) / 2;
+  duration = pulseIn(echoPin, HIGH); // Assign value to duration
 
-  float WaterLevel = boxDepth - distance;
-  if (WaterLevel <= (boxDepth - fillingThreshold)) {
-    if (WaterLevel < 0) {
-      WaterLevel = 0; // Ensure WaterLevel is not negative
+  distance = (duration * 0.0343) / 2; // Update global distance variable
+
+  float waterLevel = boxDepth - distance;
+  if (waterLevel < 0) {
+    waterLevel = 0; // Ensure waterLevel is not negative
+  }
+  Blynk.virtualWrite(V0, waterLevel); // Send water level to virtual pin V0
+  
+  // Activate relay if water level goes over the threshold
+  if (waterLevel > relayThreshold) {
+    digitalWrite(relayPin, HIGH); // Activate relay
+  } else {
+    digitalWrite(relayPin, LOW); // Deactivate relay
+  }
+}
+
+void printWaterLevel() {
+  unsigned long currentMillis = millis(); // Get the current time
+  if (currentMillis - previousPrintTime >= printInterval) { // Check if it's time to print
+    previousPrintTime = currentMillis; // Update the previous print time
+    float waterLevel = boxDepth - distance;
+    if (waterLevel < 0) {
+      waterLevel = 0; // Ensure waterLevel is not negative
     }
-    Blynk.virtualWrite(V0, WaterLevel); // Send WaterLevel to virtual pin V1
+    Serial.print("Water Level: ");
+    Serial.print(waterLevel); // Print water level
+    Serial.println(" cm");
   }
 }
