@@ -1,0 +1,39 @@
+import time
+from flask import Flask, request, jsonify
+import mailtrap as mt
+
+app = Flask(__name__)
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    if data and 'waterValue' in data:
+        water_value_str = data['waterValue']
+        print('Received waterValue:', water_value_str)
+        
+        try:
+            water_value = int(water_value_str)
+        except ValueError:
+            print('Invalid waterValue:', water_value_str)
+            return jsonify({'status': 'error', 'message': 'Invalid waterValue'}), 400
+        
+        if water_value > 2:
+            send_email(water_value)
+    else:
+        print('No valid data received')
+    return jsonify({'status': 'success'}), 200
+
+def send_email(water_value):
+    mail = mt.Mail(
+        sender=mt.Address(email="HIDDEN", name="Mailtrap Test"),
+        to=[mt.Address(email="HIDDEN")],
+        subject="Water Alert",
+        text=f"Alert! Water value is too high: {water_value}",
+        category="Water Alert"
+    )
+
+    client = mt.MailtrapClient(token="HIDDEN")
+    client.send(mail)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
